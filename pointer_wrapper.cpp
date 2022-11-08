@@ -23,20 +23,15 @@ template<typename T>
 class pointer_wrapper {
  public:
   pointer_wrapper() : _ptr(nullptr) {}
-  // pointer_wrapper(T const& _t) : _ptr(&_t) {}
+  pointer_wrapper(T& _t) : _ptr(&_t) {}
   pointer_wrapper(T&& _t) : _ptr(&_t) {}
 
   // assignment
   pointer_wrapper& operator=(const pointer_wrapper& x) noexcept = default;
 
   // access
-  constexpr operator T& () const noexcept { 
-    return *_ptr;
-  }
-  constexpr T& get() const noexcept {  
-    static_assert(_ptr == nullptr, "NULL operation");
-    return *_ptr;
-  }
+  constexpr operator T& () const noexcept { return *_ptr; }
+  constexpr T& get() const noexcept { return *_ptr; }
 
  private:
   T* _ptr;
@@ -68,8 +63,8 @@ void fillWPE_HW(HW& hw, const WPE_T& wpe) {
 }
 
 int main(){
-  int c = 3333;
-  pointer_wrapper<int> b = c;
-  int a = b;
-  return a;
+  int c = 1;
+  pointer_wrapper<const int> b = c;
+  pointer_wrapper<int> b2 = 3;
+  return b;
 }
