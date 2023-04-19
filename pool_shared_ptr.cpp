@@ -45,7 +45,7 @@ void Pool::push1(const std::shared_ptr<A> val) {
 
 void Pool::push2(A* val) {
   std::cout << "push2" << "\n";
-  mQueue.push(std::shared_ptr<A>(val));
+  mQueue.push(std::shared_ptr<A>(val, Deleter(this)));
 }
 
 
@@ -59,6 +59,18 @@ int main() {
     std::cout << "---- 2 ----" << "\n";
   }
 
+  std::cout << "\n" << "\n"; 
+
+  {
+    std::cout << "---- 0 ----" << "\n";
+    std::shared_ptr<A> temp = pool.pop();
+    std::cout << "---- 1 ----" << "\n";
+    temp = nullptr;
+    std::cout << "---- 2 ----" << "\n";
+  }
+
+  std::cout << "\n" << "\n"; 
+
   {
     std::cout << "---- 0 ----" << "\n";
     std::shared_ptr<A> temp = pool.pop();
@@ -69,3 +81,7 @@ int main() {
 
   std::cout << "END" << "\n";
 }
+
+
+///////
+// seems not dtor --> memory leak? 
