@@ -9,6 +9,8 @@
 #include <variant>
 #include <unordered_map>
 
+typedef size_t PEU_Ptr;
+
 struct A {
   int g = 0;
 };
@@ -24,64 +26,61 @@ struct Allocator<std::shared_ptr<T>> {
   static std::shared_ptr<T> alloc() { return std::make_shared<T>(); }
 };
 
+struct Relavence {
+  std::variant<A*, std::shared_ptr<A>*> mp;
+  std::vector<int> mImgs;
+};
+
+
 template<typename T, class ALLOC = Allocator<T>>
 struct ClusteredType {
-  ClusteredType()  { 
-    // mTypeName = std::string()
-  }
-  T& acquire() {
+  T& acquire(PEU_Ptr peu) {
     std::unique_lock<std::mutex> _l(mMutex);
-    mList.emplace_back(ALLOC::alloc());
-    return mList.back();
+    T*& res = mpPeuRel[peu];
+    if (res == nullptr) {
+      mList.emplace_back(ALLOC::alloc());
+      res = &mList.back();
+    }
+    printf("peu:%zd %p mList.size=%zu, mPeuRel.size=%zu\n",
+           peu, res, mList.size(), mpPeuRel.size());
+    return *res;
   }
   size_t size() const { return mList.size(); }
 
   std::list<T> mList;
+  std::unordered_map<PEU_Ptr, T*> mpPeuRel; 
   std::mutex mMutex;
 };
-
-struct Relavence {
-  std::variant<A*, std::shared_ptr<A>*> mp;
-};
-
-// auto f() {
-//   return 1;
-// }
 
 struct Cluster {
   ClusteredType<A> mA;
   ClusteredType<std::shared_ptr<A>> mpA;
-  std::unordered_map<size_t, Relavence> mMap;
-
-  // A* rel(size_t id) {
-  //   return std::get<A*>(mMap.at(id).mp);
-  // }
-  // std::shared_ptr<A>* rel(size_t id) {
-  //   return std::get<std::shared_ptr<A>*>(mMap.at(id).mp);
-  // }
   
-  A& acq_mA(size_t id) {
-    mMap[id].mp = &mA.acquire();
-    return *(std::get<A*>(mMap.at(id).mp));
+  A& acq_mA(PEU_Ptr peu) {
+    return mA.acquire(peu);
   }
-  std::shared_ptr<A>& acq_mpA(size_t id) {
-    mMap[id].mp = &mpA.acquire();
-    return *(std::get<std::shared_ptr<A>*>(mMap.at(id).mp));
+  std::shared_ptr<A>& acq_mpA(PEU_Ptr peu) {
+    return mpA.acquire(peu);
   }
 };
 
 int main() {
   Cluster a;
-  auto t1 = a.acq_mA(1);
-  auto t2 = a.acq_mA(3);
-  auto t3 = a.acq_mA(2);
-  auto t4 = a.acq_mpA(4);
-  std::cout <<  a.mA.size() << "\n";
-  std::cout <<  a.mpA.size() << "\n";
+  auto &t1 = a.acq_mA(1);
+  auto &t2 = a.acq_mA(3);
+  auto &t3 = a.acq_mA(2);
 
-  // t1.g = 22;
-  // std::cout << a.rel(1)->g << "\n";
+  t1.g = 22;
+  std::cout << a.acq_mA(1).g << "\n";
 
+  a.acq_mA(3).g = 123;
+  std::cout << t2.g << "\n";
+
+  std::cout << "=================" << "\n";
+
+  auto &t4 = a.acq_mpA(70);
   t4->g = 212321l;
   std::cout << a.mpA.mList.front()->g << "\n";
+
+  return 0;
 }
