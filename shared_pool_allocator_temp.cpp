@@ -91,10 +91,7 @@ class Pool {
 const int TOTAL_SIZE = 3;
 
 struct B {
-  int a;
-  int b;
-  int c;
-  int d;
+  int a[10];
 };
 
 struct singleton_CB {
@@ -105,10 +102,13 @@ struct singleton_CB {
   
   singleton_CB() {
     b = std::vector<B>(TOTAL_SIZE, B());
+    std::cout << "singleton " << b.size() << "\n";
   }
 
   B* get() {
-    return &b[(cnt++) % TOTAL_SIZE];
+    size_t id = (cnt++) % TOTAL_SIZE;
+    std::cout << id << "\n";
+    return &b[id];
   }
 
   std::vector<B> b;
@@ -121,32 +121,31 @@ struct Allocator_S {
 
   Allocator_S() {
     m = singleton_CB::getInstace();
-    mCnt = 0;
   }
 
   Allocator_S(const Allocator_S& other) {
     m = other.m;
-    mCnt = other.mCnt;
-    std::cout << "COPY " << mCnt <<"\n";
+    // std::cout << "COPY " << mCnt <<"\n";
   }
   Allocator_S(Allocator_S&& other) {
     m = other.m;
-    mCnt = other.mCnt;
     // std::cout << "MOVE " << m->size() <<"\n";
   }
 
   template<typename U>
   Allocator_S(const Allocator_S<U>& other) noexcept {
     m = other.m;
-    mCnt = other.mCnt;
     // std::cout << "MOVE<U> " << m->size() <<"\n";
   }
 
   [[nodiscard]] T* allocate(size_t n) {
     T* p = nullptr;
     if (m) {
-      p = reinterpret_cast<T*>((m->get()));
-      std::cout << "Alloc::use " << "p=" << p << "\n";
+      auto item = m->get();
+      p = reinterpret_cast<T*>(item);
+      std::cout << "Alloc::use " << "p=" << p 
+                << " need size:" << sizeof(T)
+                << " real size" << sizeof(*item) << "\n";
       // p = static_cast<T*>(::operator new(n * sizeof(T)));
     } else {
       p = static_cast<T*>(::operator new(n * sizeof(T)));
@@ -163,7 +162,6 @@ struct Allocator_S {
   }
   
   singleton_CB* m;
-  int mCnt;
 };
 
 template<typename T>
@@ -188,7 +186,9 @@ class SharedPtr_Pool {
   }
 
   std::shared_ptr<T> acquire() {
-    return std::shared_ptr<T>(&mData[(mCnt++) % mData.size()], mDel, mAlloc);
+    size_t id = (mCnt++) % mData.size();
+    std::cout << id << "\n";
+    return std::shared_ptr<T>(&mData[id], mDel, mAlloc);
   }
 
  private:
@@ -221,6 +221,10 @@ int main() {
     auto p2 = pool.acquire();
     std::cout << "============\n";
     p2 = nullptr;
+    std::cout << "============\n";
+    auto p3 = pool.acquire();
+    std::cout << "============\n";
+    p3 = nullptr;
   }
 
   // {
