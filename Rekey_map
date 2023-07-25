@@ -1,0 +1,97 @@
+#include <functional>
+#include <map>
+#include <iostream>
+#include <algorithm>
+
+const static int size = 10;
+const static int clear = 3;
+
+struct A {
+  int a[10];
+};
+
+template<typename KEY_T, typename DATA_T>
+struct rekey_map {
+ private:
+  struct KEY_WRAPPER {
+    KEY_WRAPPER(const KEY_T& key, bool valid) : mKey(key), mValid(valid) {}
+    inline bool operator<(const rekey_map<KEY_T, DATA_T>::KEY_WRAPPER& other) const {
+      return mKey < other.mKey;
+    }
+
+    KEY_T mKey;
+    bool mValid;
+  };
+ public:
+  void insert(const std::pair<KEY_T, DATA_T>& data) {
+    auto search = std::find_if(m.begin(), m.end(),
+        [&](const std::pair<KEY_WRAPPER, DATA_T>& v) {
+          return v.first.mValid == false;
+        });
+    KEY_WRAPPER newKey(data.first, true);
+    if (search != m.end())  {
+      auto handle = m.extract(search);
+      handle.key() = newKey;
+      m.insert(std::move(handle));
+      m[newKey] = data.second;
+      printf("replacement insert %d, %p\n", data.first, std::addressof(m[newKey]));
+    } else {
+      m[newKey] = data.second;
+      printf("normal insert %d, %p\n", data.first, std::addressof(m[newKey]));
+    }
+  }
+  bool erase(const KEY_T& key) {
+    auto search = std::find_if(m.begin(), m.end(),
+        [&](const std::pair<KEY_WRAPPER, DATA_T>& v) {
+          return v.first.mValid == true;
+        });
+    if (search != m.end()) {
+      auto handle = m.extract(search);
+      handle.key() = KEY_WRAPPER(key, false);
+      m.insert(std::move(handle));
+      printf("erase %d\n", key);
+      return true;
+    }
+    return false;
+  }
+  size_t size() {
+    return m.size();
+  }
+ public:
+  std::map<KEY_WRAPPER, DATA_T> m;
+};
+
+void heavyIOMap_normal() {
+  std::map<int, A> m;
+  for (size_t i = 0; i < size; ++i) {
+    m.insert(std::make_pair(i, A()));
+    printf("normal insert %d, %p\n", i, std::addressof(m[i]));
+    if (i >= clear) {
+      bool a = m.erase(i-clear);
+      printf("normal erase %d\n", i-clear);
+    }
+  }
+  std::cout << m.size() << "\n";
+}
+
+void heavyIOMap_reKey() {
+  rekey_map<int, A> m;
+  for (size_t i = 0; i < size; ++i) {
+    m.insert(std::make_pair(i, A()));
+    if (i >= clear) {
+      bool a = m.erase(i-clear);
+    }
+  }
+  for (auto& item : m.m) {
+  }
+  std::cout << m.size() << "\n";
+}
+
+int main() {
+  heavyIOMap_normal();
+  std::cout << "===============\n";
+  heavyIOMap_reKey();
+}
+
+// benchmark
+// https://quick-bench.com/q/P87BqSBKj4BwhKeUjdwDmPK54wk
